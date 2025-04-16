@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Card Memory Game</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      font-family: 'Arial', sans-serif;
+      background: #e0f7fa;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 90%;
+      max-width: 360px;
+    }
+    h1 {
+      font-size: 1.8em;
+      margin-bottom: 10px;
+    }
+    #startBtn {
+      margin: 10px 0 20px;
+      padding: 12px 24px;
+      background-color: #4fc3f7;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    #startBtn.hidden { display: none; }
+    #levelDisplay {
+      font-size: 1em;
+      margin-bottom: 10px;
+      display: none;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 0 auto;
+      justify-content: center;
+      transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+    }
+    .fade-out {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    .card {
+      width: 100%;
+      padding-top: 100%;
+      position: relative;
+      background-color: transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      perspective: 800px;
+    }
+    .inner {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.3s ease-in-out;
+    }
+    .flipped .inner {
+      transform: rotateY(180deg);
+    }
+    .front, .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    .front { background-color: #81d4fa; }
+    .back {
+      background-color: #0288d1;
+      transform: rotateY(180deg);
+    }
+    #message {
+      margin-top: 20px;
+      font-size: 1em;
+    }
+    #resultScreen {
+      display: none;
+      margin-top: 30px;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    button.home {
+      margin-top: 20px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1em;
+      background-color: #ccc;
+      color: black;
+    }
+    @media (max-width: 400px) {
+      .container {
+        padding: 20px;
+      }
+      .card {
+        padding-top: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧠 기억력 테스트</h1>
+    <button id="startBtn">게임 시작</button>
+    <div id="levelDisplay">단계: 1</div>
+    <div id="board"></div>
+    <div id="message"></div>
+    <div id="resultScreen"></div>
+  </div>
+
+  <script>
+    const board = document.getElementById('board');
+    const message = document.getElementById('message');
+    const startBtn = document.getElementById('startBtn');
+    const levelDisplay = document.getElementById('levelDisplay');
+    const resultScreen = document.getElementById('resultScreen');
+
+    let sequence = [];
+    let userInput = [];
+    let currentLevel = 2;
+    let isInputPhase = false;
+    let hasStarted = false;
+
+    const results = [
+      { level: 2, title: '🐟 뻐끔뻐끔 금붕어', msg: '게임에 좀 더 집중해보세요!' },
+      { level: 3, title: '🕊️ 구구 비둘기', msg: '하위 15%의 기억력이에요.<br> 집중도를 높이면 좋아질 수 있어요!' },
+      { level: 4, title: '🧠 소소한 기억력', msg: '기억력이 평균 이하에요. <br> 이 게임을 반복적으로 플레이하세요!' },
+      { level: 5, title: '🙂 보통의 휴먼', msg: '일반적인 기억력이에요. <br> 잘하고 있어요!' },
+      { level: 6, title: '😎 스마트 휴먼', msg: '기억력이 평균보다 높은 편이에요!' },
+      { level: 7, title: '🎯 축복받은 기억력!', msg: '상위 10%의 집중력과 기억력이에요!' },
+      { level: 8, title: '👽 탈인간급 기억력!', msg: '상위 5% 이상의 집중력과 기억력을 보유하셨군요.' },
+      { level: 9, title: '🧙 기억의 신', msg: '당신은 주변에서 기억력이 제일 좋을 것입니다.' },
+      { level: 10, title: '🚀 불가능의 영역', msg: '당신은 포토메모리 능력이 있습니다. <br> 축복받으셨군요!' },
+    ];
+
+    const flipInterval = 300;
+    const flipDuration = 300;
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function generateBoard() {
+      board.innerHTML = '';
+      for (let i = 0; i < 16; i++) {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.index = i;
+
+        const inner = document.createElement('div');
+        inner.classList.add('inner');
+
+        const front = document.createElement('div');
+        front.classList.add('front');
+
+        const back = document.createElement('div');
+        back.classList.add('back');
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        card.appendChild(inner);
+
+        card.addEventListener('click', handleCardClick);
+        board.appendChild(card);
+      }
+    }
+
+    function flipCard(index, showBack) {
+      const card = board.children[index];
+      if (!card) return;
+      if (showBack) {
+        card.classList.add('flipped');
+      } else {
+        card.classList.remove('flipped');
+      }
+    }
+
+    function resetToHome() {
+      hasStarted = false;
+      startBtn.textContent = '게임 시작';
+      startBtn.classList.remove('hidden');
+      resultScreen.style.display = 'none';
+      board.style.display = 'none';
+      levelDisplay.style.display = 'none';
+      message.textContent = '';
+    }
+
+    function startGame() {
+      if (!hasStarted) {
+        hasStarted = true;
+        startBtn.classList.add('hidden');
+        levelDisplay.style.display = 'block';
+      }
+
+      resultScreen.style.display = 'none';
+      board.style.display = 'grid';
+      board.classList.remove('fade-out');
+      message.textContent = '';
+      userInput = [];
+      isInputPhase = false;
+      levelDisplay.textContent = `단계: ${currentLevel - 1}`;
+
+      generateBoard();
+
+      const indexes = Array.from({ length: 16 }, (_, i) => i);
+      sequence = shuffle(indexes).slice(0, currentLevel);
+
+      setTimeout(() => {
+        sequence.forEach((i, idx) => {
+          setTimeout(() => flipCard(i, true), flipInterval * idx);
+          setTimeout(() => {
+            flipCard(i, false);
+            if (idx === sequence.length - 1) {
+              setTimeout(() => {
+                isInputPhase = true;
+              }, 400);
+            }
+          }, flipInterval * idx + flipDuration);
+        });
+      }, 700);
+    }
+
+    function handleCardClick(e) {
+      if (!isInputPhase) return;
+      const card = e.currentTarget;
+      const idx = Number(card.dataset.index);
+      if (userInput.includes(idx)) return;
+
+      flipCard(idx, true);
+      setTimeout(() => flipCard(idx, false), 500);
+
+      if (idx !== sequence[userInput.length]) {
+        isInputPhase = false;
+        showResultScreen();
+        return;
+      }
+
+      userInput.push(idx);
+      if (userInput.length === sequence.length) {
+        isInputPhase = false;
+        board.classList.add('fade-out');
+        setTimeout(() => {
+          currentLevel++;
+          startGame();
+        }, 600);
+      }
+    }
+
+    function showResultScreen() {
+      board.style.display = 'none';
+      resultScreen.style.display = 'block';
+      const finalLevel = currentLevel - 1;
+      const result = results.find(r => finalLevel <= r.level) || results[results.length - 1];
+
+      resultScreen.innerHTML = `
+        <div style="font-size: 1.7em; font-weight: bold; margin-bottom: 10px;">
+          ${finalLevel}단계 클리어!
+        </div>
+        <h2>${result.title}</h2>
+        <p>${result.msg}</p>
+        <button class="home" onclick="resetToHome()">홈으로 가기</button>
+      `;
+
+      currentLevel = 2;
+      levelDisplay.style.display = 'none';
+    }
+
+    startBtn.addEventListener('click', startGame);
+  </script>
+</body>
+</html>
