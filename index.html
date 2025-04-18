@@ -107,7 +107,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>카드 메모리 게임</h1>
+    <h1>🧠 기억력 테스트</h1>
     <button id="startBtn">게임 시작</button>
     <div id="levelDisplay">단계: 1</div>
     <div id="board"></div>
@@ -246,7 +246,7 @@
     function showResultScreen() {
       board.style.display = 'none';
       resultScreen.style.display = 'block';
-      const finalLevel = currentLevel - 1;
+      const finalLevel = userInput.length === sequence.length ? currentLevel - 1 : currentLevel - 1;
       const result = results.find(r => finalLevel <= r.level) || results[results.length - 1];
 
       resultScreen.innerHTML = `
